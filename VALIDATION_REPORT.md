@@ -42,16 +42,17 @@
 
 | Output | MAE | R² Score | Status |
 |--------|-----|----------|--------|
-| **Blade Lifespan (hrs)** | 0.25 | **0.98** ✅ | Excellent |
-| **Wear Estimation (%)** | 2.54 | **0.96** ✅ | Excellent |
-| **Cutting Efficiency (%)** | 2.10 | **0.86** ✅ | Strong |
-| **Performance Score** | 1.34 | **0.98** ✅ | Excellent |
+| **Blade Lifespan (hrs)** | 0.23 | **0.98** ✅ | Excellent |
+| **Wear Estimation (%)** | 2.53 | **0.96** ✅ | Excellent |
+| **Cutting Efficiency (%)** | 2.08 | **0.90** ✅ | Strong+ |
+| **Performance Score** | 1.32 | **0.98** ✅ | Excellent |
 
 **Improvements Achieved (since previous report)**:
 - Generated a larger, more diverse dataset (20,000 rows)
 - Added a force–temperature interaction term to efficiency physics
 - Tuned architecture, regularization, and training schedule
-- Cutting Efficiency R² improved from 0.69 → 0.86 (+25% absolute)
+- Added optional 3-seed ensemble averaging in app for inference
+- Cutting Efficiency R² improved from 0.69 → 0.90 (+21% absolute)
 
 ---
 

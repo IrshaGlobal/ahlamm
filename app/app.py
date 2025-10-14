@@ -44,33 +44,43 @@ st.set_page_config(
 # Constants
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_ROOT / "model" / "blade_model.h5"
+ENSEMBLE_SEEDS = [42, 1337, 2025]
 PREPROCESSOR_PATH = PROJECT_ROOT / "model" / "preprocessor.pkl"
 
 @st.cache_resource
 def load_model_artifacts():
-    """Load trained model and preprocessor with caching."""
-    if not MODEL_PATH.exists():
-        st.error(f"❌ Model not found at {MODEL_PATH}")
-        st.error("Please run: `python model/train_model.py` first")
-        st.stop()
-    
+    """Load trained model or ensemble and preprocessor with caching."""
     if not PREPROCESSOR_PATH.exists():
         st.error(f"❌ Preprocessor not found at {PREPROCESSOR_PATH}")
         st.stop()
-    
-    # Load model with custom objects to handle Keras version compatibility
+
+    preprocessor = joblib.load(str(PREPROCESSOR_PATH))
+
+    # If ensemble models exist, load them; otherwise load single model
+    ensemble_paths = [PROJECT_ROOT / "model" / f"blade_model_seed{seed}.h5" for seed in ENSEMBLE_SEEDS]
+    ensemble_available = all(p.exists() for p in ensemble_paths)
+
+    models = []
     try:
-        model = load_model(str(MODEL_PATH), compile=False)
-        # Recompile with current Keras version
-        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        if ensemble_available:
+            for p in ensemble_paths:
+                m = load_model(str(p), compile=False)
+                m.compile(optimizer='adam', loss='mse', metrics=['mae'])
+                models.append(m)
+        else:
+            if not MODEL_PATH.exists():
+                st.error(f"❌ Model not found at {MODEL_PATH}")
+                st.error("Please run: `python model/train_model.py` or `python model/train_ensemble.py`")
+                st.stop()
+            m = load_model(str(MODEL_PATH), compile=False)
+            m.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            models = [m]
     except Exception as e:
         st.error(f"Model loading error: {e}")
         st.error("Try retraining the model with current Keras version")
         st.stop()
-    
-    preprocessor = joblib.load(str(PREPROCESSOR_PATH))
-    
-    return model, preprocessor
+
+    return models, preprocessor
 
 def estimate_friction_coefficient(material: str, lubrication: bool) -> float:
     """Estimate friction coefficient based on material and lubrication."""
@@ -348,7 +358,12 @@ def main():
             try:
                 # Preprocess and predict
                 X_processed = preprocessor.transform(input_data)
-                predictions = model.predict(X_processed, verbose=0)[0]
+                # Support ensemble: average predictions if multiple models are loaded
+                if isinstance(model, list):
+                    preds = [m.predict(X_processed, verbose=0)[0] for m in model]
+                    predictions = np.mean(preds, axis=0)
+                else:
+                    predictions = model.predict(X_processed, verbose=0)[0]
                 
                 lifespan, wear, efficiency, performance = predictions
                 

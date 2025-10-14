@@ -118,15 +118,18 @@ def compute_outputs(df):
         
         # Add force-temperature interaction (high force & temp penalizes efficiency)
         force_temp_interaction = 1 - ((row['applied_force_N'] / 2000.0) * (row['operating_temperature_C'] / 600.0)) * 0.25
+        # Add speed-angle synergy (best when both near optimal)
+        speed_angle_interaction = angle_factor * speed_factor
         eff = (
-            0.23 * angle_factor +
-            0.13 * thickness_factor +
-            0.18 * speed_factor +
-            0.13 * force_factor +
-            0.09 * temp_factor +
-            0.09 * (1 - row['friction_coefficient'] / 1.2) +
+            0.20 * angle_factor +
+            0.12 * thickness_factor +
+            0.15 * speed_factor +
+            0.12 * force_factor +
+            0.08 * temp_factor +
+            0.08 * (1 - row['friction_coefficient'] / 1.2) +
             0.05 * material_bonus +
-            0.10 * force_temp_interaction
+            0.10 * force_temp_interaction +
+            0.10 * speed_angle_interaction
         )
         
         # Convert to percentage and add realistic noise
