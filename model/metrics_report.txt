@@ -1,0 +1,5 @@
+Per-target evaluation (Test Set):
+  - blade_lifespan_hrs: MAE=0.6938, R2=0.8585
+  - wear_estimation_pct: MAE=2.7881, R2=0.9494
+  - cutting_efficiency_pct: MAE=4.5069, R2=0.5470
+  - performance_score: MAE=1.8547, R2=0.9654
