@@ -85,9 +85,11 @@ def load_model_artifacts():
 def estimate_friction_coefficient(material: str, lubrication: bool) -> float:
     """Estimate friction coefficient based on material and lubrication."""
     base_friction = {
-        "Steel": 0.7,
-        "Aluminum": 0.5, 
-        "Titanium": 0.8
+        "Steel": 0.60,
+        "Stainless": 0.70,  # Higher due to work hardening
+        "Aluminum": 0.30,
+        "Titanium": 0.65,
+        "Cast_Iron": 0.55
     }
     
     base = base_friction.get(material, 0.6)
@@ -244,6 +246,16 @@ def generate_recommendations(
         recommendations.append("\n**Aluminum-Specific Tips:**") 
         recommendations.append("• Higher speeds generally acceptable")
         recommendations.append("• Watch for built-up edge formation")
+    elif inputs["material_to_cut"] == "Stainless":
+        recommendations.append("\n**Stainless Steel-Specific Tips:**")
+        recommendations.append("• Work hardens rapidly - use sharp tools")
+        recommendations.append("• Lower cutting speeds, positive rake angles")
+        recommendations.append("• Ensure adequate lubrication/cooling")
+    elif inputs["material_to_cut"] == "Cast_Iron":
+        recommendations.append("\n**Cast Iron-Specific Tips:**")
+        recommendations.append("• Dry cutting often preferred (graphite acts as lubricant)")
+        recommendations.append("• Higher cutting speeds can be used")
+        recommendations.append("• Good chip evacuation important")
     
     return "\n".join(recommendations)
 
@@ -268,14 +280,14 @@ def main():
         # Material selection
         material_to_cut = st.selectbox(
             "Material to Cut",
-            ["Steel", "Aluminum", "Titanium"],
+            ["Steel", "Aluminum", "Titanium", "Stainless", "Cast_Iron"],
             help="Workpiece material being machined"
         )
         
         blade_material = st.selectbox(
             "Blade Material", 
-            ["HSS", "Carbide"],
-            help="HSS = High-Speed Steel"
+            ["HSS", "Carbide", "Coated_Carbide"],
+            help="HSS = High-Speed Steel, Coated Carbide = PVD/CVD coated"
         )
         
         # Geometric parameters
@@ -382,11 +394,17 @@ def main():
     with col2:
         st.markdown("### Quick Parameter Guide")
         st.markdown("""
+        **Materials to Cut:**
         - **Steel**: General purpose, moderate speeds
         - **Aluminum**: Higher speeds OK, watch for buildup  
         - **Titanium**: Lower speeds, excellent lubrication needed
+        - **Stainless**: Work hardening, use sharp tools, lower speeds
+        - **Cast Iron**: Abrasive, higher cutting speeds acceptable
+        
+        **Blade Materials:**
         - **HSS**: Cost-effective, moderate performance
         - **Carbide**: Higher performance, harder materials
+        - **Coated Carbide**: Best for demanding applications, highest wear resistance
         """)
     
     # Display results if available
