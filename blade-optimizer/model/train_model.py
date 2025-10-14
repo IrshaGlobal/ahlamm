@@ -239,8 +239,8 @@ def main():
     
     # Save model and preprocessor
     print("\nSaving model and preprocessor...")
-    model.save('blade_model.h5')
-    print("Model saved to: blade_model.h5")
+    model.save('blade_model.keras')
+    print("Model saved to: blade_model.keras")
     
     with open('preprocessor.pkl', 'wb') as f:
         pickle.dump(scaler, f)

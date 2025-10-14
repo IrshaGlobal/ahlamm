@@ -22,7 +22,7 @@ blade-optimizer/
 │   └── blade_dataset.csv       # Generated dataset (8k+ samples)
 ├── model/
 │   ├── train_model.py          # MLP training & validation script
-│   ├── blade_model.h5          # Trained Keras model
+│   ├── blade_model.keras       # Trained Keras model
 │   └── preprocessor.pkl        # Saved sklearn preprocessor
 ├── app/
 │   └── app.py                  # Streamlit web application

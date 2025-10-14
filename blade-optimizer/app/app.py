@@ -28,12 +28,17 @@ st.set_page_config(
 @st.cache_resource
 def load_model_and_preprocessor():
     """Load the trained model and preprocessor."""
-    model_path = Path(__file__).parent.parent / 'model' / 'blade_model.h5'
-    preprocessor_path = Path(__file__).parent.parent / 'model' / 'preprocessor.pkl'
+    # Get the base path (blade-optimizer directory)
+    app_dir = Path(__file__).resolve().parent
+    base_path = app_dir.parent
+    model_path = base_path / 'model' / 'blade_model.keras'
+    preprocessor_path = base_path / 'model' / 'preprocessor.pkl'
     
     try:
-        model = keras.models.load_model(model_path)
-        with open(preprocessor_path, 'rb') as f:
+        if not model_path.exists():
+            return None, None, False
+        model = keras.models.load_model(str(model_path))
+        with open(str(preprocessor_path), 'rb') as f:
             scaler = pickle.load(f)
         return model, scaler, True
     except Exception as e:
