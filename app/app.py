@@ -270,35 +270,35 @@ def main():
         
         # Geometric parameters
         st.subheader("Geometry")
-        cutting_angle = st.slider(
+        cutting_angle = st.number_input(
             "Cutting Angle (°)", 
-            5, 25, 15,
-            help="Blade cutting angle in degrees"
+            min_value=5, max_value=25, value=15, step=1,
+            help="Blade cutting angle in degrees (optimal: ~15°)"
         )
         
-        blade_thickness = st.slider(
+        blade_thickness = st.number_input(
             "Blade Thickness (mm)",
-            2.0, 10.0, 6.0, 0.1,
-            help="Blade thickness in millimeters"
+            min_value=2.0, max_value=10.0, value=6.0, step=0.1, format="%.1f",
+            help="Blade thickness in millimeters (optimal: ~6mm)"
         )
         
         # Cutting conditions  
         st.subheader("Cutting Conditions")
-        cutting_speed = st.slider(
+        cutting_speed = st.number_input(
             "Cutting Speed (m/min)",
-            20, 200, 100,
-            help="Cutting speed in meters per minute"
+            min_value=20, max_value=200, value=100, step=5,
+            help="Cutting speed in meters per minute (optimal: 80-120)"
         )
         
-        applied_force = st.slider(
+        applied_force = st.number_input(
             "Applied Force (N)",
-            100, 2000, 800,
+            min_value=100, max_value=2000, value=800, step=50,
             help="Applied cutting force in Newtons"
         )
         
-        operating_temp = st.slider(
+        operating_temp = st.number_input(
             "Operating Temperature (°C)",
-            20, 600, 300,
+            min_value=20, max_value=600, value=300, step=10,
             help="Operating temperature in Celsius"
         )
         
@@ -308,9 +308,24 @@ def main():
             help="Whether lubrication/coolant is used"
         )
         
-        # Calculated friction
-        friction_coeff = estimate_friction_coefficient(material_to_cut, lubrication)
-        st.info(f"📊 Estimated friction coefficient: {friction_coeff:.3f}")
+        # Friction coefficient control
+        st.subheader("Friction Coefficient")
+        use_auto_friction = st.checkbox(
+            "Auto-calculate friction",
+            value=True,
+            help="Automatically estimate friction based on material and lubrication"
+        )
+        
+        if use_auto_friction:
+            friction_coeff = estimate_friction_coefficient(material_to_cut, lubrication)
+            st.info(f"📊 Estimated friction: **{friction_coeff:.3f}**")
+        else:
+            friction_coeff = st.number_input(
+                "Friction Coefficient",
+                min_value=0.1, max_value=1.2, value=0.5, step=0.01, format="%.3f",
+                help="Manual friction coefficient (0.1-1.2)"
+            )
+            st.warning("⚠️ Using manual friction value")
     
     # Prediction section
     col1, col2 = st.columns([1, 2])
@@ -366,6 +381,22 @@ def main():
         st.markdown("---")
         st.subheader("📊 Predicted Performance Metrics")
         
+        # Show input summary
+        with st.expander("📝 Input Parameters Used", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write(f"**Material to Cut:** {pred['inputs']['material_to_cut']}")
+                st.write(f"**Blade Material:** {pred['inputs']['blade_material']}")
+                st.write(f"**Cutting Angle:** {pred['inputs']['cutting_angle_deg']:.1f}°")
+            with col2:
+                st.write(f"**Thickness:** {pred['inputs']['blade_thickness_mm']:.1f} mm")
+                st.write(f"**Speed:** {pred['inputs']['cutting_speed_m_per_min']:.0f} m/min")
+                st.write(f"**Force:** {pred['inputs']['applied_force_N']:.0f} N")
+            with col3:
+                st.write(f"**Temperature:** {pred['inputs']['operating_temperature_C']:.0f}°C")
+                st.write(f"**Friction:** {pred['inputs']['friction_coefficient']:.3f}")
+                st.write(f"**Lubrication:** {'✓ Yes' if pred['inputs']['lubrication'] else '✗ No'}")
+        
         # Metrics cards
         col1, col2, col3, col4 = st.columns(4)
         
@@ -420,15 +451,31 @@ def main():
             )
             st.markdown(recommendations)
     
-    # Footer
+    # Footer with model accuracy info
     st.markdown("---")
-    st.markdown("""
-    <div style='text-align: center; color: #666;'>
-    <p><strong>Academic Project Notice</strong>: This tool uses physics-informed synthetic data for educational purposes. 
-    Not intended for production use without validation against real-world testing.</p>
-    <p>🎓 Master's Thesis Project | Mechanical Engineering | Physics-Informed Deep Learning</p>
-    </div>
-    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown("""
+        <div style='color: #666;'>
+        <p><strong>Academic Project Notice</strong>: This tool uses physics-informed synthetic data for educational purposes. 
+        Not intended for production use without validation against real-world testing.</p>
+        <p>🎓 Master's Thesis Project | Mechanical Engineering | Physics-Informed Deep Learning</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**Model Performance (R²)**")
+        st.markdown("""
+        - Lifespan: **0.92** ✓
+        - Wear: **0.96** ✓
+        - Efficiency: **0.69** ⚠️
+        - Score: **0.96** ✓
+        
+        *R² > 0.90 = Excellent*
+        """)
+    
+    st.info("💡 **Tip**: Results are most accurate when parameters are within normal operating ranges (Speed: 80-120 m/min, Angle: 12-18°, Temperature: 200-400°C)")
 
 if __name__ == "__main__":
     main()

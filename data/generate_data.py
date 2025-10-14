@@ -94,16 +94,41 @@ def compute_outputs(df):
         )
         wear = np.clip(wear * 100 + np.random.uniform(-5, 5), 5, 95)
 
-        # Cutting efficiency: higher for optimal angle/thickness, lower wear/friction
-        angle_factor = 1 - abs(row['cutting_angle_deg'] - 15) / 20
-        thickness_factor = 1 - abs(row['blade_thickness_mm'] - 6) / 8
+        # Cutting efficiency: physics-based with multiple factors
+        # Optimal angle around 15°, optimal thickness around 6mm
+        angle_factor = 1 - (abs(row['cutting_angle_deg'] - 15) / 20) ** 2
+        thickness_factor = 1 - (abs(row['blade_thickness_mm'] - 6) / 8) ** 2
+        
+        # Speed efficiency (Goldilocks zone: 80-120 m/min is optimal)
+        speed_normalized = row['cutting_speed_m_per_min'] / 100.0
+        speed_factor = np.exp(-((speed_normalized - 1.0) ** 2) / 0.5)
+        
+        # Force efficiency (lower force relative to speed is better)
+        force_normalized = row['applied_force_N'] / 1000.0
+        force_factor = 1 / (1 + force_normalized * speed_normalized * 0.3)
+        
+        # Temperature penalty (high temp reduces efficiency)
+        temp_factor = 1 - (row['operating_temperature_C'] / 600.0) * 0.4
+        
+        # Material-specific efficiency
+        if row['blade_material'] == 'Carbide':
+            material_bonus = 0.15
+        else:
+            material_bonus = 0.0
+        
+        # Combine all factors
         eff = (
-            0.4 * angle_factor +
-            0.2 * thickness_factor +
-            0.2 * (1 - wear / 100) +
-            0.2 * (1 - row['friction_coefficient'] / 1.2)
+            0.25 * angle_factor +
+            0.15 * thickness_factor +
+            0.20 * speed_factor +
+            0.15 * force_factor +
+            0.10 * temp_factor +
+            0.10 * (1 - row['friction_coefficient'] / 1.2) +
+            0.05 * material_bonus
         )
-        eff = np.clip(eff * 100 + np.random.uniform(-3, 3), 40, 99)
+        
+        # Convert to percentage and add realistic noise
+        eff = np.clip(eff * 100 + np.random.uniform(-4, 4), 35, 98)
 
         # Performance score: weighted sum of outputs
         score = (
