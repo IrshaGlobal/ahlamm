@@ -58,7 +58,16 @@ def load_model_artifacts():
         st.error(f"❌ Preprocessor not found at {PREPROCESSOR_PATH}")
         st.stop()
     
-    model = load_model(str(MODEL_PATH))
+    # Load model with custom objects to handle Keras version compatibility
+    try:
+        model = load_model(str(MODEL_PATH), compile=False)
+        # Recompile with current Keras version
+        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    except Exception as e:
+        st.error(f"Model loading error: {e}")
+        st.error("Try retraining the model with current Keras version")
+        st.stop()
+    
     preprocessor = joblib.load(str(PREPROCESSOR_PATH))
     
     return model, preprocessor
