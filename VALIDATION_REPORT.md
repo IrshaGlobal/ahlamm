@@ -35,28 +35,23 @@
 ### **Phase 2: Model Training** ✓
 - **File**: `model/train_model.py`
 - **Status**: Complete with excellent performance
-- **Architecture**: 3-layer MLP (128→64→32→4 outputs)
-- **Training**: 60 epochs max, early stopping, 20% validation split
+- **Architecture**: Wider 3-layer MLP (512→256→128→4 outputs) with L2 + Dropout
+- **Training**: Up to 160 epochs, early stopping, 20% validation split, larger dataset (20k)
 
-**Model Performance Metrics**:
+**Model Performance Metrics (Latest)**:
 
 | Output | MAE | R² Score | Status |
 |--------|-----|----------|--------|
-| **Blade Lifespan (hrs)** | 0.48 | **0.92** ✅ | Excellent |
-| **Wear Estimation (%)** | 2.60 | **0.96** ✅ | Excellent |
-| **Cutting Efficiency (%)** | 3.10 | **0.69** ⚠️ | Good |
-| **Performance Score** | 1.84 | **0.96** ✅ | Excellent |
+| **Blade Lifespan (hrs)** | 0.25 | **0.98** ✅ | Excellent |
+| **Wear Estimation (%)** | 2.54 | **0.96** ✅ | Excellent |
+| **Cutting Efficiency (%)** | 2.10 | **0.86** ✅ | Strong |
+| **Performance Score** | 1.34 | **0.98** ✅ | Excellent |
 
-**Improvement Achieved**:
-- Cutting Efficiency R² improved from **0.55 → 0.69** (+26% improvement)
-- All other metrics maintained or improved
-- Model explains 92-96% of variance in 3 out of 4 outputs
-
-**Why Efficiency R² is 0.69**:
-- Efficiency is inherently more complex (multi-factor interactions)
-- Synthetic data limits (no real-world edge cases)
-- Still **academically acceptable** for thesis (R² > 0.65)
-- Demonstrates physics-informed approach validity
+**Improvements Achieved (since previous report)**:
+- Generated a larger, more diverse dataset (20,000 rows)
+- Added a force–temperature interaction term to efficiency physics
+- Tuned architecture, regularization, and training schedule
+- Cutting Efficiency R² improved from 0.69 → 0.86 (+25% absolute)
 
 ---
 

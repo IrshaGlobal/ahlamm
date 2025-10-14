@@ -31,7 +31,7 @@ FRICTION_BASE = {
 FRICTION_LUBE_FACTOR = 0.6  # Lubrication reduces friction by ~40%
 
 # Input ranges
-N_SAMPLES = 8000
+N_SAMPLES = 20000
 
 MATERIALS_TO_CUT = ['Steel', 'Aluminum', 'Titanium']
 BLADE_MATERIALS = ['HSS', 'Carbide']
@@ -116,15 +116,17 @@ def compute_outputs(df):
         else:
             material_bonus = 0.0
         
-        # Combine all factors
+        # Add force-temperature interaction (high force & temp penalizes efficiency)
+        force_temp_interaction = 1 - ((row['applied_force_N'] / 2000.0) * (row['operating_temperature_C'] / 600.0)) * 0.25
         eff = (
-            0.25 * angle_factor +
-            0.15 * thickness_factor +
-            0.20 * speed_factor +
-            0.15 * force_factor +
-            0.10 * temp_factor +
-            0.10 * (1 - row['friction_coefficient'] / 1.2) +
-            0.05 * material_bonus
+            0.23 * angle_factor +
+            0.13 * thickness_factor +
+            0.18 * speed_factor +
+            0.13 * force_factor +
+            0.09 * temp_factor +
+            0.09 * (1 - row['friction_coefficient'] / 1.2) +
+            0.05 * material_bonus +
+            0.10 * force_temp_interaction
         )
         
         # Convert to percentage and add realistic noise

@@ -87,15 +87,17 @@ def build_preprocessor() -> ColumnTransformer:
     )
 
 def build_model(input_dim: int) -> tf.keras.Model:
+    from tensorflow.keras import regularizers, optimizers
     model = Sequential([
-        Dense(128, activation="relu", input_shape=(input_dim,)),
-        Dropout(0.2),
-        Dense(64, activation="relu"),
-        Dropout(0.2),
-        Dense(32, activation="relu"),
+        Dense(512, activation="relu", input_shape=(input_dim,), kernel_regularizer=regularizers.l2(0.0005)),
+        Dropout(0.3),
+        Dense(256, activation="relu", kernel_regularizer=regularizers.l2(0.0005)),
+        Dropout(0.3),
+        Dense(128, activation="relu", kernel_regularizer=regularizers.l2(0.0005)),
         Dense(len(TARGET_COLUMNS), name="outputs"),
     ])
-    model.compile(optimizer="adam", loss="mse", metrics=["mae"])
+    optimizer = optimizers.Adam(learning_rate=1e-3)
+    model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
     return model
 
 def evaluate(model: tf.keras.Model, X_test: np.ndarray, y_test: pd.DataFrame) -> str:
@@ -134,13 +136,13 @@ def main():
         X_train,
         y_train,
         validation_split=0.2,
-        epochs=60,
+        epochs=160,
         batch_size=32,
         verbose=1,
         callbacks=[
             tf.keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=8, restore_best_weights=True
-            )
+                monitor="val_loss", patience=24, restore_best_weights=True
+            ),
         ],
     )
 
