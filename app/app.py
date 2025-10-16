@@ -62,10 +62,6 @@ def load_model_artifacts():
             st.error("Please run: `python model/train_model.py`")
             st.stop()
         
-        # Enable unsafe deserialization for our trusted model with Lambda layers
-        import keras
-        keras.config.enable_unsafe_deserialization()
-        
         model = load_model(str(MODEL_PATH), compile=False)
         model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     except Exception as e:
