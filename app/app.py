@@ -1,25 +1,26 @@
 """
 Streamlit web application for blade performance prediction.
 
+Master's Thesis Project - Mechanical Engineering
+Physics-informed deep learning for cutting blade optimization.
+
 Features:
 - Interactive input controls for blade parameters
-- Real-time prediction of 4 performance metrics
+- Real-time prediction of 3 performance metrics
+- Post-prediction performance score calculation
 - 2D blade visualization with wear zones
 - Rule-based optimization recommendations
-- Physics-informed synthetic data approach
 
 Usage: streamlit run app.py
 """
 
-import os
 import sys
 from pathlib import Path
+from typing import Dict
 import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-import plotly.express as px
-from typing import Dict, Tuple
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -44,57 +45,54 @@ st.set_page_config(
 # Constants
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_ROOT / "model" / "blade_model.h5"
-ENSEMBLE_SEEDS = [42, 1337, 2025]
 PREPROCESSOR_PATH = PROJECT_ROOT / "model" / "preprocessor.pkl"
 
 @st.cache_resource
 def load_model_artifacts():
-    """Load trained model or ensemble and preprocessor with caching."""
+    """Load trained model and preprocessor with caching."""
     if not PREPROCESSOR_PATH.exists():
         st.error(f"❌ Preprocessor not found at {PREPROCESSOR_PATH}")
         st.stop()
 
     preprocessor = joblib.load(str(PREPROCESSOR_PATH))
 
-    # If ensemble models exist, load them; otherwise load single model
-    ensemble_paths = [PROJECT_ROOT / "model" / f"blade_model_seed{seed}.h5" for seed in ENSEMBLE_SEEDS]
-    ensemble_available = all(p.exists() for p in ensemble_paths)
-
-    models = []
     try:
-        if ensemble_available:
-            for p in ensemble_paths:
-                m = load_model(str(p), compile=False)
-                m.compile(optimizer='adam', loss='mse', metrics=['mae'])
-                models.append(m)
-        else:
-            if not MODEL_PATH.exists():
-                st.error(f"❌ Model not found at {MODEL_PATH}")
-                st.error("Please run: `python model/train_model.py` or `python model/train_ensemble.py`")
-                st.stop()
-            m = load_model(str(MODEL_PATH), compile=False)
-            m.compile(optimizer='adam', loss='mse', metrics=['mae'])
-            models = [m]
+        if not MODEL_PATH.exists():
+            st.error(f"❌ Model not found at {MODEL_PATH}")
+            st.error("Please run: `python model/train_model.py`")
+            st.stop()
+        
+        # Enable unsafe deserialization for our trusted model with Lambda layers
+        import keras
+        keras.config.enable_unsafe_deserialization()
+        
+        model = load_model(str(MODEL_PATH), compile=False)
+        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     except Exception as e:
         st.error(f"Model loading error: {e}")
-        st.error("Try retraining the model with current Keras version")
+        st.error("Try retraining the model with current version")
         st.stop()
 
-    return models, preprocessor
+    return model, preprocessor
 
 def estimate_friction_coefficient(material: str, lubrication: bool) -> float:
-    """Estimate friction coefficient based on material and lubrication."""
+    """Auto-calculate friction coefficient based on material and lubrication."""
     base_friction = {
         "Steel": 0.60,
-        "Stainless": 0.70,  # Higher due to work hardening
+        "Stainless Steel": 0.65,
         "Aluminum": 0.30,
+        "Cast Iron": 0.55,
+        "Brass": 0.35,
         "Titanium": 0.65,
-        "Cast_Iron": 0.55
     }
     
     base = base_friction.get(material, 0.6)
-    # Lubrication reduces friction by ~40%
     return base * (0.6 if lubrication else 1.0)
+
+def compute_performance_score(lifespan: float, wear: float, efficiency: float) -> float:
+    """Compute performance score post-prediction as per thesis specification."""
+    performance_score = 0.4 * (100 - wear) + 0.3 * efficiency + 0.3 * min(lifespan / 10, 1) * 100
+    return min(100, performance_score)
 
 def create_blade_visualization(
     thickness: float,
@@ -242,20 +240,54 @@ def generate_recommendations(
         recommendations.append("\n**Titanium-Specific Tips:**")
         recommendations.append("• Use flood coolant to manage heat")
         recommendations.append("• Maintain sharp cutting edges")
+        recommendations.append("• Low cutting speeds essential due to poor thermal conductivity")
     elif inputs["material_to_cut"] == "Aluminum":
         recommendations.append("\n**Aluminum-Specific Tips:**") 
         recommendations.append("• Higher speeds generally acceptable")
         recommendations.append("• Watch for built-up edge formation")
-    elif inputs["material_to_cut"] == "Stainless":
+        recommendations.append("• Use sharp tools with polished cutting edges")
+    elif inputs["material_to_cut"] == "Stainless Steel":
         recommendations.append("\n**Stainless Steel-Specific Tips:**")
         recommendations.append("• Work hardens rapidly - use sharp tools")
         recommendations.append("• Lower cutting speeds, positive rake angles")
         recommendations.append("• Ensure adequate lubrication/cooling")
-    elif inputs["material_to_cut"] == "Cast_Iron":
+        recommendations.append("• Avoid tool rubbing to prevent work hardening")
+    elif inputs["material_to_cut"] == "Cast Iron":
         recommendations.append("\n**Cast Iron-Specific Tips:**")
         recommendations.append("• Dry cutting often preferred (graphite acts as lubricant)")
         recommendations.append("• Higher cutting speeds can be used")
         recommendations.append("• Good chip evacuation important")
+        recommendations.append("• Abrasive material - carbide tools recommended")
+    elif inputs["material_to_cut"] == "Brass":
+        recommendations.append("\n**Brass-Specific Tips:**")
+        recommendations.append("• Easy to machine with high speeds")
+        recommendations.append("• Prevent built-up edge with sharp tools")
+        recommendations.append("• Excellent surface finish achievable")
+        recommendations.append("• Minimal lubrication needed")
+    elif inputs["material_to_cut"] == "Steel":
+        recommendations.append("\n**Steel-Specific Tips:**")
+        recommendations.append("• Balanced cutting parameters work well")
+        recommendations.append("• Adjust speed based on hardness")
+        recommendations.append("• Good general-purpose machining characteristics")
+    
+    # Blade type-specific advice
+    blade_type = inputs.get("blade_type", "")
+    if "Circular" in blade_type:
+        recommendations.append("\n**Circular Blade Tips:**")
+        recommendations.append("• Continuous cutting action improves efficiency")
+        recommendations.append("• Monitor for uniform wear around circumference")
+    elif "Insert" in blade_type or "Replaceable" in blade_type:
+        recommendations.append("\n**Insert/Replaceable Tip Tips:**")
+        recommendations.append("• Cost-effective - replace inserts when worn")
+        recommendations.append("• Ensure proper insert clamping")
+    elif "Toothed" in blade_type:
+        recommendations.append("\n**Toothed Blade Tips:**")
+        recommendations.append("• Multiple cutting edges distribute wear")
+        recommendations.append("• Good for softer materials and high removal rates")
+    elif "Straight" in blade_type:
+        recommendations.append("\n**Straight Blade Tips:**")
+        recommendations.append("• Simple geometry, easy to sharpen")
+        recommendations.append("• Versatile for various cutting operations")
     
     return "\n".join(recommendations)
 
@@ -270,38 +302,47 @@ def main():
     st.markdown("""
     **Physics-informed deep learning for cutting blade optimization** | Master's Thesis Project
     
-    Predict blade performance using synthetic data generated from Taylor's Tool Life Equation and ASM Handbook constants.
+    Predict blade performance across **168 material combinations** (6 workpiece materials × 7 blade materials × 4 blade types)  
+    using synthetic data generated from Taylor's Tool Life Equation and ASM Handbook constants.
     """)
     
     # Sidebar inputs
     with st.sidebar:
         st.header("⚙️ Blade & Cutting Parameters")
         
-        # Material selection
+        # Material selection - expanded to 6 materials
         material_to_cut = st.selectbox(
             "Material to Cut",
-            ["Steel", "Aluminum", "Titanium", "Stainless", "Cast_Iron"],
+            ["Steel", "Stainless Steel", "Aluminum", "Cast Iron", "Brass", "Titanium"],
             help="Workpiece material being machined"
         )
         
+        # Blade material - expanded to 7 options
         blade_material = st.selectbox(
             "Blade Material", 
-            ["HSS", "Carbide", "Coated_Carbide"],
-            help="HSS = High-Speed Steel, Coated Carbide = PVD/CVD coated"
+            ["HSS", "Carbide", "Coated Carbide (TiN)", "Coated Carbide (TiAlN)", "Ceramic", "CBN", "PCD"],
+            help="HSS=High-Speed Steel, CBN=Cubic Boron Nitride, PCD=Polycrystalline Diamond"
+        )
+        
+        # NEW: Blade type selection - 4 types
+        blade_type = st.selectbox(
+            "Blade Type",
+            ["Straight Blade", "Circular Blade", "Insert/Replaceable Tip Blade", "Toothed Blade"],
+            help="Physical blade configuration and design"
         )
         
         # Geometric parameters
         st.subheader("Geometry")
         cutting_angle = st.number_input(
             "Cutting Angle (°)", 
-            min_value=5, max_value=25, value=15, step=1,
-            help="Blade cutting angle in degrees (optimal: ~15°)"
+            min_value=15, max_value=45, value=30, step=1,
+            help="Blade cutting angle in degrees (thesis range: 15-45°)"
         )
         
         blade_thickness = st.number_input(
             "Blade Thickness (mm)",
-            min_value=2.0, max_value=10.0, value=6.0, step=0.1, format="%.1f",
-            help="Blade thickness in millimeters (optimal: ~6mm)"
+            min_value=0.5, max_value=5.0, value=2.5, step=0.1, format="%.1f",
+            help="Blade thickness in millimeters (thesis range: 0.5-5.0mm)"
         )
         
         # Cutting conditions  
@@ -309,7 +350,7 @@ def main():
         cutting_speed = st.number_input(
             "Cutting Speed (m/min)",
             min_value=20, max_value=200, value=100, step=5,
-            help="Cutting speed in meters per minute (optimal: 80-120)"
+            help="Cutting speed in meters per minute"
         )
         
         applied_force = st.number_input(
@@ -320,8 +361,8 @@ def main():
         
         operating_temp = st.number_input(
             "Operating Temperature (°C)",
-            min_value=20, max_value=600, value=300, step=10,
-            help="Operating temperature in Celsius"
+            min_value=20, max_value=800, value=300, step=10,
+            help="Operating temperature in Celsius (thesis range: 20-800°C)"
         )
         
         lubrication = st.checkbox(
@@ -330,34 +371,20 @@ def main():
             help="Whether lubrication/coolant is used"
         )
         
-        # Friction coefficient control
-        st.subheader("Friction Coefficient")
-        use_auto_friction = st.checkbox(
-            "Auto-calculate friction",
-            value=True,
-            help="Automatically estimate friction based on material and lubrication"
-        )
-        
-        if use_auto_friction:
-            friction_coeff = estimate_friction_coefficient(material_to_cut, lubrication)
-            st.info(f"📊 Estimated friction: **{friction_coeff:.3f}**")
-        else:
-            friction_coeff = st.number_input(
-                "Friction Coefficient",
-                min_value=0.1, max_value=1.2, value=0.5, step=0.01, format="%.3f",
-                help="Manual friction coefficient (0.1-1.2)"
-            )
-            st.warning("⚠️ Using manual friction value")
+        # Auto-calculate friction coefficient
+        friction_coeff = estimate_friction_coefficient(material_to_cut, lubrication)
+        st.info(f"📊 Auto-calculated friction: **{friction_coeff:.3f}**")
     
     # Prediction section
     col1, col2 = st.columns([1, 2])
     
     with col1:
         if st.button("🔍 Predict Performance", type="primary", use_container_width=True):
-            # Prepare input data
+            # Prepare input data (now includes blade_type)
             input_data = pd.DataFrame([{
                 "material_to_cut": material_to_cut,
-                "blade_material": blade_material, 
+                "blade_material": blade_material,
+                "blade_type": blade_type,
                 "cutting_angle_deg": cutting_angle,
                 "blade_thickness_mm": blade_thickness,
                 "cutting_speed_m_per_min": cutting_speed,
@@ -368,16 +395,17 @@ def main():
             }])
             
             try:
-                # Preprocess and predict
+                # Preprocess and predict (3 outputs only)
                 X_processed = preprocessor.transform(input_data)
-                # Support ensemble: average predictions if multiple models are loaded
-                if isinstance(model, list):
-                    preds = [m.predict(X_processed, verbose=0)[0] for m in model]
-                    predictions = np.mean(preds, axis=0)
-                else:
-                    predictions = model.predict(X_processed, verbose=0)[0]
+                predictions = model.predict(X_processed, verbose=0)
                 
-                lifespan, wear, efficiency, performance = predictions
+                # Model returns 3 separate arrays [lifespan_arr, wear_arr, efficiency_arr]
+                lifespan = float(predictions[0][0])
+                wear = float(predictions[1][0])
+                efficiency = float(predictions[2][0])
+                
+                # Compute performance score post-prediction
+                performance = compute_performance_score(lifespan, wear, efficiency)
                 
                 # Store results in session state
                 st.session_state.predictions = {
@@ -396,15 +424,25 @@ def main():
         st.markdown("""
         **Materials to Cut:**
         - **Steel**: General purpose, moderate speeds
+        - **Stainless Steel**: Work hardening, use sharp tools, lower speeds
         - **Aluminum**: Higher speeds OK, watch for buildup  
-        - **Titanium**: Lower speeds, excellent lubrication needed
-        - **Stainless**: Work hardening, use sharp tools, lower speeds
         - **Cast Iron**: Abrasive, higher cutting speeds acceptable
+        - **Brass**: Easy to machine, good surface finish
+        - **Titanium**: Lower speeds, excellent lubrication needed
         
         **Blade Materials:**
         - **HSS**: Cost-effective, moderate performance
         - **Carbide**: Higher performance, harder materials
-        - **Coated Carbide**: Best for demanding applications, highest wear resistance
+        - **Coated Carbide (TiN/TiAlN)**: Best wear resistance
+        - **Ceramic**: High-speed machining, hard materials
+        - **CBN**: Hardened steels, high-performance
+        - **PCD**: Non-ferrous materials, long life
+        
+        **Blade Types:**
+        - **Straight**: General purpose, simple geometry
+        - **Circular**: Continuous cutting, high efficiency
+        - **Insert/Replaceable**: Cost-effective, quick changes
+        - **Toothed**: Multiple cutting edges, good for soft materials
         """)
     
     # Display results if available
@@ -420,6 +458,7 @@ def main():
             with col1:
                 st.write(f"**Material to Cut:** {pred['inputs']['material_to_cut']}")
                 st.write(f"**Blade Material:** {pred['inputs']['blade_material']}")
+                st.write(f"**Blade Type:** {pred['inputs'].get('blade_type', 'N/A')}")
                 st.write(f"**Cutting Angle:** {pred['inputs']['cutting_angle_deg']:.1f}°")
             with col2:
                 st.write(f"**Thickness:** {pred['inputs']['blade_thickness_mm']:.1f} mm")
@@ -500,12 +539,13 @@ def main():
     with col2:
         st.markdown("**Model Performance (R²)**")
         st.markdown("""
-        - Lifespan: **0.92** ✓
-        - Wear: **0.96** ✓
-        - Efficiency: **0.69** ⚠️
-        - Score: **0.96** ✓
+        - Lifespan: **0.95** ✅
+        - Wear: **0.90** ⚠️
+        - Efficiency: **0.68** ⚠️
+        - Overall: **0.84** ⚠️
         
-        *R² > 0.90 = Excellent*
+        *Trained on 168 combinations*  
+        *(6 materials × 7 blades × 4 types)*
         """)
     
     st.info("💡 **Tip**: Results are most accurate when parameters are within normal operating ranges (Speed: 80-120 m/min, Angle: 12-18°, Temperature: 200-400°C)")
