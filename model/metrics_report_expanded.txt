@@ -1,6 +1,6 @@
 
 BLADE OPTIMIZER - MODEL PERFORMANCE REPORT
-Generated: 2025-10-16 22:06:47.826926
+Generated: 2025-10-17 21:34:37.522942
 ==========================================
 
 DATASET INFORMATION:
@@ -24,25 +24,25 @@ TEST SET PERFORMANCE:
 ====================
 
 1. Blade Lifespan (hrs)
-   - R² Score: 0.9561 ✅
-   - MAE: 0.7043 hrs
-   - RMSE: 0.9348 hrs
-   - MAPE: 10.79%
+   - R² Score: 0.9567 ✅
+   - MAE: 0.6896 hrs
+   - RMSE: 0.9282 hrs
+   - MAPE: 10.72%
 
 2. Wear Estimation (%)
-   - R² Score: 0.8994 ⚠️
-   - MAE: 3.5021%
-   - RMSE: 4.4138%
-   - MAPE: 7972123399.94%
+   - R² Score: 0.8989 ⚠️
+   - MAE: 3.4957%
+   - RMSE: 4.4250%
+   - MAPE: 7793389046.33%
 
 3. Cutting Efficiency (%)
-   - R² Score: 0.6781 ⚠️
-   - MAE: 4.0768%
-   - RMSE: 5.0890%
-   - MAPE: 5.65%
+   - R² Score: 0.6760 ⚠️
+   - MAE: 4.0747%
+   - RMSE: 5.1055%
+   - MAPE: 5.62%
 
 OVERALL:
-- Average R²: 0.8445
+- Average R²: 0.8439
 - Status: ⚠️ BELOW TARGET
 
 THESIS-READY: NEEDS IMPROVEMENT ⚠️
