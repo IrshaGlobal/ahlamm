@@ -7,6 +7,10 @@ Trains multi-task neural network for 3 outputs:
 2. Wear Estimation (%)
 3. Cutting Efficiency (%)
 
+Quick Wins applied:
+- Improved efficiency formula in data generator
+- Added derived features via sklearn transformer (reused at inference)
+
 Target: R² ≥ 0.95 for ALL outputs
 """
 
@@ -15,25 +19,58 @@ import pandas as pd
 import joblib
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, Model
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import argparse
+import sys
+
+# Ensure project root is on sys.path for absolute imports when running as a script
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from model.feature_engineering import DerivedFeatureAdder, DERIVED_FEATURES
 import matplotlib.pyplot as plt
 
 # Set seeds for reproducibility
 RANDOM_SEED = 42
-np.random.seed(RANDOM_SEED)
-tf.random.set_seed(RANDOM_SEED)
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
-DATA_PATH = PROJECT_ROOT / "data" / "blade_dataset_expanded.csv"
-MODEL_PATH = PROJECT_ROOT / "model" / "blade_model.h5"
-PREPROCESSOR_PATH = PROJECT_ROOT / "model" / "preprocessor.pkl"
+
+# CLI args
+parser = argparse.ArgumentParser(description="Train Blade Optimizer model with derived features")
+parser.add_argument("--data", default=str(PROJECT_ROOT / "data" / "blade_dataset_expanded.csv"), help="Path to CSV dataset")
+parser.add_argument("--model-path", default=str(PROJECT_ROOT / "model" / "blade_model.h5"), help="Where to save the trained model")
+parser.add_argument("--preprocessor-path", default=str(PROJECT_ROOT / "model" / "preprocessor.pkl"), help="Where to save the preprocessor")
+parser.add_argument("--epochs", type=int, default=250)
+parser.add_argument("--batch-size", type=int, default=32)
+parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--seed", type=int, default=42)
+if __name__ == "__main__":
+    args = parser.parse_args()
+else:
+    args = argparse.Namespace(
+        data=str(PROJECT_ROOT / "data" / "blade_dataset_expanded.csv"),
+        model_path=str(PROJECT_ROOT / "model" / "blade_model.h5"),
+        preprocessor_path=str(PROJECT_ROOT / "model" / "preprocessor.pkl"),
+        epochs=250,
+        batch_size=32,
+        lr=1e-3,
+        seed=42,
+    )
+
+DATA_PATH = Path(args.data)
+MODEL_PATH = Path(args.model_path)
+PREPROCESSOR_PATH = Path(args.preprocessor_path)
+
+# Set seeds
+RANDOM_SEED = int(args.seed)
+np.random.seed(RANDOM_SEED)
+tf.random.set_seed(RANDOM_SEED)
 
 print("=" * 80)
 print("BLADE OPTIMIZER - ENHANCED MODEL TRAINING")
@@ -83,23 +120,43 @@ print(f"   y shape: {y.shape}")
 # PREPROCESSING
 # ============================================================================
 
-print(f"\n🔧 Creating preprocessing pipeline...")
+print(f"\n🔧 Creating preprocessing pipeline with derived features...")
 
 # Identify categorical and numerical columns
 categorical_features = ["material_to_cut", "blade_material", "blade_type", "lubrication"]
-numerical_features = [col for col in INPUT_FEATURES if col not in categorical_features]
+numerical_base = [col for col in INPUT_FEATURES if col not in categorical_features]
+
+# We'll apply DerivedFeatureAdder first (operates on DataFrame), then scale numeric columns
+def identity_df(X):
+    # Ensures we work with a DataFrame inside ColumnTransformer
+    return X if isinstance(X, pd.DataFrame) else pd.DataFrame(X, columns=INPUT_FEATURES)
+
+fe_adder = FunctionTransformer(lambda df: DerivedFeatureAdder().fit_transform(df), validate=False, feature_names_out="one-to-one")
 
 print(f"   Categorical features: {len(categorical_features)}")
-print(f"   Numerical features: {len(numerical_features)}")
+print(f"   Numerical base features: {len(numerical_base)} + derived: {len(DERIVED_FEATURES)}")
 
 # Create preprocessing pipeline
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), numerical_features),
-        ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_features)
-    ],
-    remainder='passthrough'
-)
+def build_preprocessor_pipeline():
+    # After FE, numerical columns include base + derived
+    numeric_cols = numerical_base + DERIVED_FEATURES
+
+    ct = ColumnTransformer(
+        transformers=[
+            ('num', StandardScaler(), numeric_cols),
+            ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_features),
+        ],
+        remainder='drop',
+        verbose_feature_names_out=False,
+    )
+
+    pipe = Pipeline([
+        ('fe', DerivedFeatureAdder()),
+        ('ct', ct),
+    ])
+    return pipe
+
+preprocessor = build_preprocessor_pipeline()
 
 # Split data
 print(f"\n✂️  Splitting data...")
@@ -115,7 +172,7 @@ print(f"   Val:   {len(X_val):,} samples (10%)")
 print(f"   Test:  {len(X_test):,} samples (10%)")
 
 # Fit and transform
-print(f"\n🔄 Fitting preprocessor...")
+print(f"\n🔄 Fitting preprocessor (with derived features)...")
 X_train_processed = preprocessor.fit_transform(X_train)
 X_val_processed = preprocessor.transform(X_val)
 X_test_processed = preprocessor.transform(X_test)
@@ -213,7 +270,7 @@ def create_model(input_dim, learning_rate=0.001):
 
 # Create model
 input_dim = X_train_processed.shape[1]
-model = create_model(input_dim, learning_rate=0.001)
+model = create_model(input_dim, learning_rate=args.lr)
 
 print(f"\n📋 Model Architecture:")
 model.summary()
@@ -259,8 +316,8 @@ history = model.fit(
     X_train_processed,
     y_train_dict,
     validation_data=(X_val_processed, y_val_dict),
-    epochs=250,  # Increased from 150
-    batch_size=32,  # Reduced from 64 for better gradient updates
+    epochs=args.epochs,
+    batch_size=args.batch_size,
     callbacks=callbacks,
     verbose=1
 )

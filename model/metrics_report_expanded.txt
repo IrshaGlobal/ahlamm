@@ -1,6 +1,6 @@
 
 BLADE OPTIMIZER - MODEL PERFORMANCE REPORT
-Generated: 2025-10-17 21:34:37.522942
+Generated: 2025-10-17 22:08:34.929144
 ==========================================
 
 DATASET INFORMATION:
@@ -8,14 +8,14 @@ DATASET INFORMATION:
 - Training Samples: 39,916
 - Validation Samples: 4,990
 - Test Samples: 4,990
-- Input Features: 21
+- Input Features: 31
 - Output Targets: 3
 
 MODEL ARCHITECTURE:
 - Type: Multi-task Neural Network
 - Shared Layers: 3 (256→128→64 neurons)
 - Task-Specific Heads: 3 (32 neurons each)
-- Total Parameters: 207,171
+- Total Parameters: 212,291
 - Activation: ReLU (hidden), Custom (outputs)
 - Optimizer: Adam
 - Learning Rate: 0.001
@@ -24,25 +24,25 @@ TEST SET PERFORMANCE:
 ====================
 
 1. Blade Lifespan (hrs)
-   - R² Score: 0.9567 ✅
-   - MAE: 0.6896 hrs
-   - RMSE: 0.9282 hrs
-   - MAPE: 10.72%
+   - R² Score: 0.9569 ✅
+   - MAE: 0.7300 hrs
+   - RMSE: 0.9352 hrs
+   - MAPE: 11.19%
 
 2. Wear Estimation (%)
-   - R² Score: 0.8989 ⚠️
-   - MAE: 3.4957%
-   - RMSE: 4.4250%
-   - MAPE: 7793389046.33%
+   - R² Score: 0.9035 ⚠️
+   - MAE: 3.4401%
+   - RMSE: 4.3865%
+   - MAPE: 7345550879.33%
 
 3. Cutting Efficiency (%)
-   - R² Score: 0.6760 ⚠️
-   - MAE: 4.0747%
-   - RMSE: 5.1055%
-   - MAPE: 5.62%
+   - R² Score: 0.9698 ✅
+   - MAE: 2.6749%
+   - RMSE: 3.4506%
+   - MAPE: 4.21%
 
 OVERALL:
-- Average R²: 0.8439
+- Average R²: 0.9434
 - Status: ⚠️ BELOW TARGET
 
 THESIS-READY: NEEDS IMPROVEMENT ⚠️

@@ -7,9 +7,9 @@ Physics-informed data generation using Taylor's Tool Life Equation.
 
 Scope:
 - 6 Materials to Cut
-- 6 Blade Materials  
+- 7 Blade Materials
 - 4 Blade Types
-- 144 Total Combinations
+- 168 Total Combinations
 - ~50,000 Total Samples
 
 Outputs: 3 predictions only
@@ -174,48 +174,60 @@ def calculate_wear_estimation(lifespan, blade_material, operating_temp, friction
     
     return wear
 
-def calculate_cutting_efficiency(material, blade_material, blade_type, 
-                                 cutting_angle, speed, force, temp):
+def calculate_cutting_efficiency(material, blade_material, blade_type,
+                                 cutting_angle, speed, force, temp, friction, lubrication):
     """
-    Calculate cutting efficiency based on multiple factors.
-    Efficiency represents how effectively material is removed.
+    Improved cutting efficiency model using smooth optima and synergy terms.
+    - Bell-shaped response around optimal cutting speed and angle
+    - Moderate force optimum
+    - Lubrication bonus and friction penalty
+    - Blade-material hardness synergy and blade-type efficiency factor
+    Output clamped to [20, 100] (%).
     """
-    # Optimal cutting angle (around 15-25 degrees for most materials)
-    angle_efficiency = 1.0 - abs(cutting_angle - 20) / 50
-    angle_efficiency = max(0.5, min(1.0, angle_efficiency))
-    
-    # Speed efficiency (material dependent)
+    # Angle kernel (optimum around 20° with sigma ~10°)
+    angle_sigma = 10.0
+    angle_kernel = np.exp(-((cutting_angle - 20.0) ** 2) / (2 * angle_sigma ** 2))  # 0..1
+
+    # Speed kernel (optimum at material's nominal speed, sigma = 35% of optimum)
     optimal_speed = np.mean(CUTTING_SPEED_RANGES[material])
-    speed_efficiency = 1.0 - abs(speed - optimal_speed) / optimal_speed
-    speed_efficiency = max(0.5, min(1.0, speed_efficiency))
-    
-    # Blade material factor
-    blade_factor = BLADE_PERFORMANCE[blade_material]["hardness"] / 10000
-    blade_factor = min(1.0, blade_factor)
-    
+    speed_ratio = speed / (optimal_speed + 1e-6)
+    speed_sigma = 0.35
+    speed_kernel = np.exp(-((speed_ratio - 1.0) ** 2) / (2 * speed_sigma ** 2))  # 0..1
+
+    # Force kernel (optimum ~900 N, sigma ~500 N)
+    force_sigma = 500.0
+    force_kernel = np.exp(-((force - 900.0) ** 2) / (2 * force_sigma ** 2))
+
+    # Temperature penalty (soft penalty past 450°C, harsh past 650°C)
+    if temp <= 450:
+        temp_factor = 1.0
+    elif temp <= 650:
+        temp_factor = 1.0 - (temp - 450.0) / 600.0  # down to ~0.67
+    else:
+        temp_factor = max(0.35, 1.0 - (temp - 650.0) / 300.0)  # clamp at 0.35
+
+    # Lubrication bonus and friction penalty
+    lub_bonus = 1.10 if lubrication else 1.0
+    friction_penalty = 1.0 - min(0.35, max(0.0, (friction - 0.25) * 0.6))
+
+    # Blade-material synergy via hardness ratio
+    mat_hard = np.mean(MATERIAL_HARDNESS[material])
+    blade_hard = BLADE_PERFORMANCE[blade_material]["hardness"]
+    hardness_ratio = blade_hard / (mat_hard + 1e-6)
+    # Smooth cap of synergy in [0.8, 1.15]
+    synergy = 0.8 + 0.35 * (np.tanh((hardness_ratio - 1.0) * 0.6) + 1) / 2.0
+
     # Blade type factor
     type_factor = BLADE_TYPE_PROPERTIES[blade_type]["efficiency_factor"]
-    
-    # Temperature penalty (too high reduces efficiency)
-    temp_penalty = 1.0 if temp < 400 else (800 - temp) / 400
-    temp_penalty = max(0.4, min(1.0, temp_penalty))
-    
-    # Force factor (moderate force is optimal)
-    force_factor = 1.0 - abs(force - 800) / 1500
-    force_factor = max(0.6, min(1.0, force_factor))
-    
-    # Calculate overall efficiency
-    efficiency = (angle_efficiency * 0.25 + 
-                  speed_efficiency * 0.25 + 
-                  blade_factor * 0.20 +
-                  type_factor * 0.15 +
-                  temp_penalty * 0.10 +
-                  force_factor * 0.05) * 100
-    
-    # Add noise
-    efficiency = efficiency + np.random.normal(0, 5)
-    efficiency = max(20, min(100, efficiency))
-    
+
+    # Combine multiplicatively with weighted geometric mean
+    base = (angle_kernel ** 0.25) * (speed_kernel ** 0.35) * (force_kernel ** 0.15)
+    modifiers = temp_factor * lub_bonus * friction_penalty * synergy * type_factor
+    efficiency = 100.0 * np.clip(base * modifiers, 0.2, 1.0)
+
+    # Small noise
+    efficiency = efficiency + np.random.normal(0, 3.0)
+    efficiency = float(np.clip(efficiency, 20.0, 100.0))
     return efficiency
 
 # ============================================================================
@@ -265,11 +277,28 @@ def generate_sample(material, blade_material, blade_type):
     )
     
     cutting_efficiency = calculate_cutting_efficiency(
-        material, blade_material, blade_type, 
-        cutting_angle, cutting_speed, applied_force, operating_temp
+        material, blade_material, blade_type,
+        cutting_angle, cutting_speed, applied_force, operating_temp, friction, lubrication
     )
+
+    # Derived features (for EDA; training recomputes these internally)
+    mat_hard_avg = np.mean(MATERIAL_HARDNESS[material])
+    blade_hard = BLADE_PERFORMANCE[blade_material]["hardness"]
+    optimal_speed = np.mean(CUTTING_SPEED_RANGES[material])
+    derived = {
+        "speed_ratio": cutting_speed / (optimal_speed + 1e-6),
+        "thermal_load_ratio": operating_temp / (BLADE_PERFORMANCE[blade_material]["max_temp"] + 1e-6),
+        "hardness_ratio": blade_hard / (mat_hard_avg + 1e-6),
+        "force_speed_ratio": applied_force / (cutting_speed + 1e-6),
+        "geometry_cos": np.cos(np.deg2rad(cutting_angle)),
+        "specific_energy_proxy": applied_force * friction / (cutting_speed + 1e-6),
+        "blade_type_efficiency_factor": BLADE_TYPE_PROPERTIES[blade_type]["efficiency_factor"],
+        "blade_material_wear_resistance": BLADE_PERFORMANCE[blade_material]["wear_resistance"],
+        "blade_hardness": blade_hard,
+        "material_hardness_avg": mat_hard_avg,
+    }
     
-    return {
+    base = {
         # Input features
         "material_to_cut": material,
         "blade_material": blade_material,
@@ -287,6 +316,9 @@ def generate_sample(material, blade_material, blade_type):
         "wear_estimation_pct": wear_estimation,
         "cutting_efficiency_pct": cutting_efficiency
     }
+    # Merge base with derived for easier offline analysis
+    base.update(derived)
+    return base
 
 def generate_expanded_dataset(total_samples=50000):
     """
