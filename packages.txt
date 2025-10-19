@@ -1,2 +1,0 @@
-# System dependencies for Hugging Face Spaces
-# Add any required system packages here (one per line)
