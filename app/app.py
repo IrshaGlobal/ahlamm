@@ -535,10 +535,10 @@ def main():
     with col2:
         st.markdown("**Model Performance (R²)**")
         st.markdown("""
-        - Lifespan: **0.95** ✅
-        - Wear: **0.90** ⚠️
-        - Efficiency: **0.68** ⚠️
-        - Overall: **0.84** ⚠️
+        - Lifespan: **0.958** ✅
+        - Wear: **0.903** ⚠️
+        - Efficiency: **0.972** ✅
+        - Overall: **0.944** ✅
         
         *Trained on 168 combinations*  
         *(6 materials × 7 blades × 4 types)*
