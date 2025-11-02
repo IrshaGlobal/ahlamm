@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+monitor.log
+training_monitor.log
+
+# Training artifacts (large files - keep models)
+model/advanced_training_run.log
+model/metrics_report_*.txt
+model/advanced_results.json
+
+# Old backups
+*_old.md
+*_OLD.*
+*.bak
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+.backup_streamlit/

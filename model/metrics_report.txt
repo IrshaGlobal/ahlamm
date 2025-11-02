@@ -1,4 +1,0 @@
-Thesis Model Evaluation (Test Set):
-  - blade_lifespan_hrs: MAE=0.6962, R²=0.8241
-  - wear_estimation_pct: MAE=1.7385, R²=0.9770
-  - cutting_efficiency_pct: MAE=2.8574, R²=0.6915

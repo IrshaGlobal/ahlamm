@@ -1,0 +1,20 @@
+# Ignore VCS and dev artifacts
+.git
+.devcontainer
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+server.log
+
+# Virtual environments
+.venv
+venv
+
+# Backups
+.backup_streamlit
+
+# OS files
+.DS_Store
+Thumbs.db

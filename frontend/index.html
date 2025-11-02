@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blade Performance Predictor - Ahlam Faci</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #f472b6;
+            --success: #10b981;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 50%, #ddd6fe 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .header h1 {
+            background: linear-gradient(135deg, #6366f1, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .header .author {
+            color: #6366f1;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 8px 0;
+        }
+        .header .subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+        .header .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #818cf8, #f472b6);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+        }
+        .control-group {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        .control-group h5 {
+            color: #6366f1;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .form-control, .form-select {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.1);
+            outline: none;
+        }
+        .btn-predict {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border: none;
+            padding: 16px 48px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            border-radius: 14px;
+            width: 100%;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+            transition: all 0.3s;
+        }
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99,102,241,0.4);
+        }
+        .metric-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(99,102,241,0.15);
+        }
+        .metric-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #6366f1, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #6366f1;
+            margin: 12px 0;
+        }
+        .metric-label {
+            color: #64748b;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .metric-unit {
+            font-size: 1rem;
+            color: #94a3b8;
+        }
+        .performance-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-top: 20px;
+        }
+        .performance-badge.excellent { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .performance-badge.good { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+        .performance-badge.average { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .performance-badge.poor { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .recommendations-card {
+            background: linear-gradient(135deg, #fef3c7, #fce7f3);
+            border-radius: 16px;
+            padding: 28px;
+            margin-top: 30px;
+            border: 2px solid #fbbf24;
+        }
+        .recommendations-card h4 {
+            color: #6366f1;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .recommendations-card ul {
+            list-style: none;
+            padding: 0;
+        }
+        .recommendations-card li {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .input-info {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .calculated-value {
+            background: linear-gradient(135deg, #818cf8, #f472b6);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-cogs"></i> Blade Performance Predictor</h1>
+            <p class="author">By Ahlam Faci</p>
+            <p class="subtitle">Master's Thesis Project | Mechanical Engineering</p>
+            <span class="badge">Physics-Informed Deep Learning | 5-Model Ensemble</span>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <form id="predictionForm">
+                    <div class="control-group">
+                        <h5><i class="fas fa-layer-group"></i> Material Configuration</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-cube"></i> Workpiece Material</label>
+                                <select class="form-select" id="workpiece_material" required>
+                                    <option value="Steel">Steel</option>
+                                    <option value="Stainless Steel">Stainless Steel</option>
+                                    <option value="Aluminum" selected>Aluminum</option>
+                                    <option value="Cast Iron">Cast Iron</option>
+                                    <option value="Brass">Brass</option>
+                                    <option value="Titanium">Titanium</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-cut"></i> Blade Material</label>
+                                <select class="form-select" id="blade_material" required>
+                                    <option value="HSS">HSS (High-Speed Steel)</option>
+                                    <option value="Carbide" selected>Carbide</option>
+                                    <option value="Coated Carbide (TiN)">Coated Carbide (TiN)</option>
+                                    <option value="Coated Carbide (TiAlN)">Coated Carbide (TiAlN)</option>
+                                    <option value="Ceramic">Ceramic</option>
+                                    <option value="CBN">CBN (Cubic Boron Nitride)</option>
+                                    <option value="PCD">PCD (Polycrystalline Diamond)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-shapes"></i> Blade Type</label>
+                            <select class="form-select" id="blade_type" required>
+                                <option value="Straight Blade">Straight Blade</option>
+                                <option value="Circular Blade" selected>Circular Blade</option>
+                                <option value="Insert/Replaceable Tip Blade">Insert/Replaceable Tip Blade</option>
+                                <option value="Toothed Blade">Toothed Blade</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h5><i class="fas fa-ruler-combined"></i> Geometric Parameters</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-ruler"></i> Blade Thickness (mm)</label>
+                                <input type="number" class="form-control" id="thickness" value="2.5" min="0.5" max="5.0" step="0.1" required>
+                                <small class="input-info">Range: 0.5 - 5.0 mm</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-angle-right"></i> Cutting Angle (°)</label>
+                                <input type="number" class="form-control" id="cutting_angle" value="30" min="15" max="45" step="1" required>
+                                <small class="input-info">Range: 15° - 45°</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h5><i class="fas fa-sliders-h"></i> Operating Conditions</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-tachometer-alt"></i> Cutting Speed (m/min)</label>
+                                <input type="number" class="form-control" id="cutting_speed" value="100" min="20" max="200" step="5" required>
+                                <small class="input-info">Range: 20 - 200 m/min</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-compress-arrows-alt"></i> Applied Force (N)</label>
+                                <input type="number" class="form-control" id="applied_force" value="800" min="100" max="2000" step="50" required>
+                                <small class="input-info">Range: 100 - 2000 N</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-temperature-high"></i> Operating Temperature (°C)</label>
+                                <input type="number" class="form-control" id="operating_temperature" value="300" min="20" max="800" step="10" required>
+                                <small class="input-info">Range: 20 - 800 °C</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><i class="fas fa-oil-can"></i> Lubrication</label>
+                                <div class="form-check form-switch" style="padding-top: 8px;">
+                                    <input class="form-check-input" type="checkbox" id="lubrication" checked>
+                                    <label class="form-check-label" for="lubrication" style="margin-left: 10px;">
+                                        <span id="lubrication-label">Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label"><i class="fas fa-calculator"></i> Friction Coefficient (Auto-calculated)</label>
+                            <div class="calculated-value">
+                                <i class="fas fa-magic"></i> Friction: <span id="friction-display">0.18</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-predict" id="predictBtn">
+                        <i class="fas fa-brain"></i> Predict Performance
+                    </button>
+                </form>
+            </div>
+
+            <div class="col-lg-6">
+                <div id="results-container" style="display: none;">
+                    <div class="results-section">
+                        <h3 style="color: #6366f1; font-weight: 700; margin-bottom: 30px; text-align: center;">
+                            <i class="fas fa-chart-line"></i> Prediction Results
+                        </h3>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-icon"><i class="fas fa-clock"></i></div>
+                                    <div class="metric-value" id="lifespan-value">-</div>
+                                    <div class="metric-unit">hours</div>
+                                    <div class="metric-label">Blade Lifespan</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
+                                    <div class="metric-value" id="wear-value">-</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-label">Wear Estimation</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-icon"><i class="fas fa-bolt"></i></div>
+                                    <div class="metric-value" id="efficiency-value">-</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-label">Cutting Efficiency</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-icon"><i class="fas fa-star"></i></div>
+                                    <div class="metric-value" id="performance-value">-</div>
+                                    <div class="metric-unit">/100</div>
+                                    <div class="metric-label">Performance Score</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="performance-badge good" id="performance-badge">
+                                <i class="fas fa-check-circle"></i>
+                                <span id="performance-text">Good Performance</span>
+                            </div>
+                        </div>
+                        
+                        <div class="recommendations-card">
+                            <h4><i class="fas fa-lightbulb"></i> Optimization Recommendations</h4>
+                            <ul id="recommendations-list"></ul>
+                        </div>
+                        
+                        <div style="background: white; border-radius: 16px; padding: 28px; margin-top: 30px; border: 2px solid #e2e8f0;">
+                            <h4 style="color: #6366f1; font-weight: 700; margin-bottom: 20px; text-align: center;">
+                                <i class="fas fa-chart-bar"></i> Blade Geometry Visualization
+                            </h4>
+                            <div id="blade-plot"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="initial-message" class="text-center" style="padding: 100px 20px;">
+                    <i class="fas fa-arrow-left" style="font-size: 4rem; color: #818cf8; margin-bottom: 20px;"></i>
+                    <h4 style="color: #64748b;">Configure blade parameters and click<br>"Predict Performance" to see results</h4>
+                </div>
+                
+                <div id="error-container" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const frictionCoefficients = {
+            "Steel": 0.60, "Stainless Steel": 0.65, "Aluminum": 0.30,
+            "Cast Iron": 0.55, "Brass": 0.35, "Titanium": 0.65
+        };
+        
+        function updateFriction() {
+            const material = document.getElementById('workpiece_material').value;
+            const lubrication = document.getElementById('lubrication').checked;
+            let friction = frictionCoefficients[material];
+            if (lubrication) friction *= 0.6;
+            document.getElementById('friction-display').textContent = friction.toFixed(2);
+        }
+        
+        document.getElementById('lubrication').addEventListener('change', function() {
+            document.getElementById('lubrication-label').textContent = this.checked ? 'Enabled' : 'Disabled';
+            updateFriction();
+        });
+        
+        document.getElementById('workpiece_material').addEventListener('change', updateFriction);
+        updateFriction();
+        
+        document.getElementById('predictionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const predictBtn = document.getElementById('predictBtn');
+            const resultsContainer = document.getElementById('results-container');
+            const initialMessage = document.getElementById('initial-message');
+            const errorContainer = document.getElementById('error-container');
+            
+            predictBtn.disabled = true;
+            predictBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analyzing...';
+            errorContainer.style.display = 'none';
+            
+            const formData = {
+                workpiece_material: document.getElementById('workpiece_material').value,
+                blade_material: document.getElementById('blade_material').value,
+                blade_type: document.getElementById('blade_type').value,
+                thickness: parseFloat(document.getElementById('thickness').value),
+                cutting_angle: parseFloat(document.getElementById('cutting_angle').value),
+                cutting_speed: parseFloat(document.getElementById('cutting_speed').value),
+                applied_force: parseFloat(document.getElementById('applied_force').value),
+                operating_temperature: parseFloat(document.getElementById('operating_temperature').value),
+                lubrication: document.getElementById('lubrication').checked
+            };
+            
+            try {
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                const data = await response.json();
+                
+                document.getElementById('lifespan-value').textContent = data.blade_lifespan.toFixed(2);
+                document.getElementById('wear-value').textContent = data.wear_estimation.toFixed(2);
+                document.getElementById('efficiency-value').textContent = data.cutting_efficiency.toFixed(2);
+                document.getElementById('performance-value').textContent = data.performance_score.toFixed(1);
+                
+                const performanceBadge = document.getElementById('performance-badge');
+                const performanceText = document.getElementById('performance-text');
+                const score = data.performance_score;
+                
+                if (score >= 90) {
+                    performanceBadge.className = 'performance-badge excellent';
+                    performanceText.textContent = 'Excellent Performance';
+                } else if (score >= 70) {
+                    performanceBadge.className = 'performance-badge good';
+                    performanceText.textContent = 'Good Performance';
+                } else if (score >= 50) {
+                    performanceBadge.className = 'performance-badge average';
+                    performanceText.textContent = 'Average Performance';
+                } else {
+                    performanceBadge.className = 'performance-badge poor';
+                    performanceText.textContent = 'Poor Performance';
+                }
+                
+                const recommendationsList = document.getElementById('recommendations-list');
+                recommendationsList.innerHTML = '';
+                data.optimization_tips.forEach(tip => {
+                    const li = document.createElement('li');
+                    li.textContent = tip;
+                    recommendationsList.appendChild(li);
+                });
+                
+                const thickness = formData.thickness;
+                const angle = formData.cutting_angle;
+                const x = [0, 10, 10 - thickness * Math.sin(angle * Math.PI / 180), 0, 0];
+                const y = [0, 0, thickness * Math.cos(angle * Math.PI / 180), thickness, 0];
+                
+                Plotly.newPlot('blade-plot', [{
+                    x: x, y: y, fill: 'toself',
+                    fillcolor: 'rgba(99, 102, 241, 0.3)',
+                    line: { color: 'rgb(99, 102, 241)', width: 3 },
+                    type: 'scatter', mode: 'lines'
+                }], {
+                    title: { text: `${formData.blade_type} - ${formData.blade_material}`, font: { size: 14, color: '#6366f1' } },
+                    xaxis: { title: 'Length (mm)', showgrid: true },
+                    yaxis: { title: 'Thickness (mm)', showgrid: true },
+                    margin: { l: 50, r: 30, t: 40, b: 50 },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(248, 250, 252, 0.5)',
+                    showlegend: false
+                }, { responsive: true, displayModeBar: false });
+                
+                initialMessage.style.display = 'none';
+                resultsContainer.style.display = 'block';
+                
+                if (window.innerWidth < 992) {
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                
+            } catch (error) {
+                console.error('Prediction error:', error);
+                errorContainer.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><strong>Error:</strong> ${error.message}. Please try again.</div>`;
+                errorContainer.style.display = 'block';
+            } finally {
+                predictBtn.disabled = false;
+                predictBtn.innerHTML = '<i class="fas fa-brain"></i> Predict Performance';
+            }
+        });
+    </script>
+</body>
+</html>
